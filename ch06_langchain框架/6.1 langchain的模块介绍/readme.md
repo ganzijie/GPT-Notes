@@ -194,7 +194,7 @@ chain=LLMchain(
     ),
     prompt=prompt
 )
-
+```
 
 将subject的值设为ice cream flavors，然后调用prompt.format(subject="ice cream flavors")方法，返回一个完整的提示词字符串，包含指导模型产生5种冰淇淋口味的指令。导入LLMChain链组件，将PromptTemplate类实例化后的对象传入LLMChain链：output=chain("ice cream flavors")。运行这个链得到的是一个JSON对象，output['text']是模型回答的字符串，然后调用输出解析器的parse()方法将这个字符串解析为一个列表。
 
@@ -317,4 +317,40 @@ db_chain.run("how many people are there")
 ## 6.1.4 记忆模块
 
 
-人们希望聊天机器人在对话过程中理解对话，记住对话内容，理解情绪和需求，这需要赋予大语言模型一种记忆功能。大模型的记忆模块是一个集合体，由多个不同的记忆组件构成，每个记忆组件都负责某一特定方面的记忆功能。
+### 6.1.4.1 记忆组件例子
+
+
+人们希望聊天机器人在对话过程中理解对话，记住对话内容，理解情绪和需求，这需要赋予大语言模型一种记忆功能。大模型的记忆模块是一个集合体，由多个不同的记忆组件构成，每个记忆组件都负责某一特定方面的记忆功能。下面演示如何实例化一个记忆组件，以及如何使用记忆组件的保存和加载方法来管理聊天记录。
+
+
+首先，引入ConversationTokenBufferMemory类，并创建一个OpenAI类的实例作为其参数。ConversationTokenBufferMemory是一个记忆组件，它将最近的交互信息保存在内存中，并使用最大标记(token)数量来决定何时清除交互信息。使用一个OpenAI实例和一个max_token_limit参数来创建ConversationTokenBufferMemory的实例memory。max_token_limit=1000指定了记忆组件中可以存储的最大标记数量为1000。memory_key参数用于设置记忆组件存储对象的键名，默认是history。
+```python
+from langchain.memory import ConversationTokenBufferMemory
+from langchain.llms import OpenAI
+openai_api_key="密钥"
+llm=OpenAI(openai_api_key=openai_api_key,memory_key="history")
+```
+
+
+接下来，可以使用save_context方法将聊天记录保存到记忆组件中。每次调用save_context方法，都会将一次交互(包括用户输入和聊天机器人的回答)记录添加到记忆组件的缓冲区中。
+```python
+memory.save_context({"input":"原神启动"},{"output":"星穹启动”})
+```
+
+
+最后可以使用load_memory_variables方法加载记忆组件中的聊天记录。这个方法会返回一个字典，其中包含了记忆组件当前保存的所有聊天记录。
+```python
+memory.load_memory_variables({})
+```
+
+
+### 6.1.4.2 内置记忆组件
+
+
+langchain的记忆模块提供了多种内置的记忆组件类，例如ConversationBufferMemory和ConversationTokenBufferMemory等类都是用于保存和加载聊天记录的记忆组件，但ConversationBufferMemory类使用一个缓冲区来保存最近的聊天记录。此外，有些记忆组件类还提供了额外的功能，如ConversationEntityMemory和ConversationKGMemory类可以用于保存和查询实体信息，CombinedMemory类可以用于组合多个记忆组件，而ReadOnlySharedMemory类则提供了一种只读的共享记忆模式。对于需要将聊天记录持久化保存的应用场景，langchain的记忆模块还提供了多种与数据库集成的记忆组件类，如SQLChatMessageHistory、MongoDBChatMessageHistory、DynamoDBChatMessageHistory等。这些类在保存和加载聊天记录时，会将聊天记录保存在对应的数据库中。
+
+
+langchain还提供了两种总结记忆组件：会话缓冲区总结记忆(ConversationSummaryBufferMemory)组件和会话总结记忆(ConversationSummaryMemory)组件。会话总结记忆组件不会逐字逐句存储对话，而是对对话内容进行摘要，并将这些摘要存储起来。而会话缓冲区总结记忆组件则结合了会话总结记忆组件和缓冲区的概念，它会保存最近的交互记录，并将旧的交互记录编译成摘要，同时保留两者。
+
+
+在处理复杂对话时，常常需要提取对话中的关键信息。这种需求促使开发出了知识图谱和实体记忆这两种组件。知识图谱记忆组件能够根据对话内容构建出一个信息网络。实体记忆组件则专注于在对话中提取特定实体的信息，它使用大语言模型提取实体信息，并随着时间推移，通过同样的方式积累关于这个实体的知识。因此，实体记忆组件给出的结果通常是关于特定事物的关键信息。实体记忆和知识图谱这两种记忆组件都试图根据对话内容诠释对话并提取其中的信息。
