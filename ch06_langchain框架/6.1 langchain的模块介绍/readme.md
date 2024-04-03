@@ -354,3 +354,58 @@ langchain还提供了两种总结记忆组件：会话缓冲区总结记忆(Conv
 
 
 在处理复杂对话时，常常需要提取对话中的关键信息。这种需求促使开发出了知识图谱和实体记忆这两种组件。知识图谱记忆组件能够根据对话内容构建出一个信息网络。实体记忆组件则专注于在对话中提取特定实体的信息，它使用大语言模型提取实体信息，并随着时间推移，通过同样的方式积累关于这个实体的知识。因此，实体记忆组件给出的结果通常是关于特定事物的关键信息。实体记忆和知识图谱这两种记忆组件都试图根据对话内容诠释对话并提取其中的信息。
+
+
+## 6.1.5 Agent模块
+
+
+### 6.1.5.1 Agent模块概述
+
+
+AI Agent即常说的智能体，简单地说就是一种拥有“智能”的自治实体，它能够感知周围的环境，并在一定程度上根据自己的经验做出反应。从langchain框架层面来说，Agent是一个高级组件，它将langchain的工具和链整合到一起。在Agent模块(langchain.agents)下，有多种不同的类，每一个类都可以被看作一个“Agent组件”。Agent组件是Agent模块的子元素，用于执行更具体的代理任务。从LLM应用实践来说，Langchain的Agent都属于Action Agent。Action Agent的控制流程是发送用户的输入后，Agent可能会寻找一个工具，运行该工具，然后检查该工具的输出。具体来说，langchain的Agent具有访问多种工具的权限，并根据用户的输入来决定使用哪些工具。一个Agent可以串联多个工具，将一个工具的输出用作另一个工具的输入，从而实现复杂和特定的任务。除了Action Agent，还有其他Agent概念:Plan and Execute Agent、Autonomous Agent和Generative Agent。Plan and Execute Agent把Agent分离为两个部分：一个规划器和一个执行器。规划器具有一个语言模型，用作推理和提前计划多个步骤。执行器会分析输入，根据初始化时选定的工具为特定的机器人选择最适合的处理方式。
+
+
+Agent组件的核心是用大语言模型作为推理引擎，并根据这些推理来决定如何与外部工具交互及采取何种行动。在langchain框架的Agent模块下，Agent组件是围绕几个核心组件(如不同类型的内置Agent组件、Tools组件、Toolkits组件和AgentExecutor组件)进行构建的。目前，Langchain框架中通用的一种Agent组件实现方式是ReAct组件(reasoning and acting，推理与行动)。ReAct策略组件将推理和行动融合在一起：Agent组件在接收用户的请求后，使用大语言模型选择合适的工具组件，然后Agent组件执行选定的工具组件的操作，并观察结果。这些结果会再次反馈给大语言模型进行进一步的分析决策，这个过程持续进行直到达到某个停止条件。
+
+
+在Langchain框架的Agent模块中，Agent组件负责做计划决策，制定执行计划表；而AgentExecutor负责执行。AgentExecutor组件是Agent组件在运行时的环境，负责调用和管理Agent组件，执行由Agent组件选定的行动并处理各种复杂情况，此外还负责日志记录和可观察性处理。AgentExecutor类包括了几个重要的功能：
+- 继承自Chain：AgentExecutor是Chain的子类，它继承了Chain类的所有方法和属性，并且还可能添加或覆写一些特定的行为。
+- 成员变量agent：AgentExecutor类有一个名为agent的成员变量，这个变量可以是BaseSingleActionAgent或BaseMultiActionAgent的实例。这个agent负责生成计划或者动作。
+- agent的调用：take_next_step是AgentExecutor类的核心方法，负责每一步的执行，在take_next_step方法内部agent的plan方法被调用，工具被找到并执行。
+- 工具(tools)验证和管理：AgentExecutor负责验证提供给agent的工具是否兼容，以及管理agent的执行，包括最大迭代次数和最大执行时间。每一个agent动作对应一个工具，这些工具在name_to_tool_map字典中进行查找和执行。
+
+
+AgentExecutor首先会调用Agent的plan方法，以决定下一步的行动。plan方法的输出是一个AgentAction对象，包含了行动的详细信息。然后，AgentExecutor会执行这个AgentAction，通过调用相应的Tools来执行。这个过程可以通过调用AgentExecutor的run方法来启动。下面是Agent组件的一个示例：
+```python
+from langchain.agents import load_tools
+from langchain.agents import initialize_agent
+from langchain.agents import AgentType
+from langchain.llms import OpenAI
+llm=OpenAI(temperature=0)
+tools=load_tools(["serpapi","llm-math"],llm=llm)#serpapi用于搜索，llm-math用于解决数学问题
+agent=initialize_agent(tools,llm,agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=True)
+agent.run("原神启动")
+```
+
+### 6.1.5.2 内置Agent组件的类型
+
+
+内置的Agent组件按原理有以下分类：
+- Zero-shot ReAct组件(zero-shot-react-description)：该Agent组件采用ReAct框架组件，并仅根据工具组件的描述来选择工具组件。
+- 结构化输入反应组件(structured-chat-zero-shot-react-description)：该Agent组件可以处理多输入工具组件，它可以使用工具组件的参数模式来创建结构化的行动输入。
+- OpenAI函数组件(openai-functions)：该Agent组件与特定的OpenAI模型共同工作，以便检测何时应调用函数组件。
+- 对话ReAct组件(conversational-react-description)：该Agent组件专为对话环境设计。它使用ReAct框架组件来选择工具组件，并能记住之前的对话交互。
+- 自问与搜索组件(self-ask-with-search)：该Agent组件使用名为“Intermediate Answer”的工具组件来寻找问题的事实答案。
+- ReAct文档存储组件(react-docstore)：该Agent组件使用ReAct框架组件与文档存储交互，它需要两个具体的工具组件：搜索工具组件和查找工具组件。
+
+
+### 6.1.5.3 工具组件和工具包组件
+
+
+在Agent模块中，工具组件(Tools)是Agent组件用来与世界互动的接口。工具组件包(Toolkits)是用于完成特定任务的工具组件的集合，它们具有方便的加载方法。工具组件包将一组具有共同目标或特性的工具组件集中在一起，提供统一而便捷的使用方式，使得用户能够方便完成特定任务。在构建Agent组件时，需要提供一个工具组件列表，其中的工具组件是Agent组件可以使用的：实际被调用的函数外(func=search.run)；name(必需)；description(可选，Agent组件用其判断工具组件使用情况)。下面是使用例子：
+```python
+from langchain.agents import ZeroShotAgent,Tool,AgentExecutor
+from langchain import OpenAI,SerpAPIWrapper,LLMChain
+search=SerpAPIWrapper()#用于访问SerpAPI
+tools=[Tool(name="Search",func=search.run,descirption="原神启动")]
+```
