@@ -409,3 +409,32 @@ from langchain import OpenAI,SerpAPIWrapper,LLMChain
 search=SerpAPIWrapper()#用于访问SerpAPI
 tools=[Tool(name="Search",func=search.run,descirption="原神启动")]
 ```
+
+
+## 6.1.6 回调处理器
+
+
+回调处理器是一种允许开发者在特定事件发生时执行自定义操作的机制。在langchain框架中，回调处理器是一种特殊的包装机制，其允许开发者定义一系列方法来响应不同的生命周期事件。langchain的回调机制有两个核心参数：callback=[]和run_manager，callback=[]为run_manager提供具体的回调器列表，run_manager管理和触发回调事件。整个回调处理器的工作流程包含开始执行链组件、链组件执行中、触发回调和完成4个阶段：
+- 开始执行链组件阶段：此时，系统开始执行链组件，并为处理输入数据做好准备。然后检查callbacks=[]参数，若传递了callbacks=[]，则系统进入下一步初始化run_manager。此时，系统使用传递的callbacks=[]列表来初始化run_manager，确保它包含了所有提供的回调处理器。
+- 链组件执行中阶段：系统根据输入数据执行链组件。在各个关键点，如数据处理、模型调用等，系统会检查run_manager是否需要触发任何回调。
+- 触发回调阶段：如果run_manager在某个执行阶段检测到需要触发的回调事件，它会按照callbacks=[]中定义的顺序触发回调处理器。
+- 完成阶段：当所有任务都完成，并且所有必要的回调都被触发后，链组件的执行结束。
+
+
+链组件的调用方式有两种，一种是构造函数回调，在创建链组件或Agent组件时，通过callback=[]参数将回调处理器传入构造函数。这种类型的回调会在整个组件的生命周期中起作用，只要这个组件被调用，相关的回调函数就会被触发；另一种是请求回调，这是在调用组件的run()或apply()方法的callbacks=[]参数传入回调器。
+
+
+本质上，Agent组件是一个特殊的复合链组件，可以简化回调处理器的使用范围为链组件。以下是一个具体的链组件，其使用callbacks参数传递具体的回调器列表：
+```python
+class MyCustomHandler(BaseCallbackHandler):
+    def on_llm_start(self,*args,kwargs):
+        print("LLM开始运行")
+my_handler=MyCustomHandler()
+result=my_chain.run("input",callbacks=[my_handler])
+```
+
+
+为了简化开发过程，langchain提供了一系列内置的回调处理器，比如运行一个Agent组件，它的底层都使用到了StdOutCallbackHandler，它将所有事件记录到stdout中。上面代码用到的BaseCallbackHandler则是回调处理器的核心类，定义了一系列方法，每一个方法都与langchain一个特定事件相对应，例如on_llm_start方法就与LLM事件对应，当LLM启动并开始处理请求时，这个方法会被调用。它提供了一个机会，例如初始化某些资源或记录开始时间。
+
+
+由于篇幅有限以及langchain内容庞杂，关于langchain模块的基本内容暂时介绍到这里，感兴趣可以阅读langchain的专门书籍和社区资源。下面将介绍langchain的应用开发案例。
